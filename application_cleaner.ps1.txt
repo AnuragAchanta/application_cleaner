@@ -1,0 +1,90 @@
+# ========================================================
+# UNUSED APPLICATION CLEANUP SCRIPT (PowerShell)
+# ========================================================
+
+# WARNING: This script relies on the 'LastAccessTime' property.
+# On many modern Windows systems, especially newer NTFS installations,
+# LastAccessTime tracking might be disabled for performance reasons.
+# This means the results may not accurately reflect when an application
+# was last launched, but when the executable file was last accessed.
+
+# --- Configuration ---
+
+# 1. Define the number of days of inactivity
+$INACTIVITY_DAYS = 20
+
+# 2. Define the target directory to search.
+#    - For user-installed apps (recommended): "$env:LOCALAPPDATA\Programs"
+#    - For system-wide apps: "$env:ProgramFiles" or "$env:ProgramFiles(x86)"
+#    - For general user files: "$env:USERPROFILE\Documents"
+#
+# !!! CHANGE THIS PATH !!!
+$APP_DIR = "C:\Users\$env:USERNAME\AppData\Local\Programs"
+
+# 3. SAFETY FLAG: Set to $true to ENABLE permanent deletion.
+#    Set to $false (default) for PREVIEW MODE only.
+$DELETE_ENABLED = $false
+
+# --------------------------------------------------------
+
+# Calculate the time threshold (files older than this will be flagged)
+$ThresholdDate = (Get-Date).AddDays(-$INACTIVITY_DAYS)
+
+# ========================================================
+# STEP 1: Input Validation
+# ========================================================
+
+if (-not (Test-Path -Path $APP_DIR -PathType Container)) {
+    Write-Host "Error: The directory '$APP_DIR' does not exist." -ForegroundColor Red
+    Write-Host "Please update the 'APP_DIR' variable in the script." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "--- Script Configuration ---"
+Write-Host "Target Directory: $APP_DIR"
+Write-Host "Inactivity Threshold: $INACTIVITY_DAYS days (Accessed before $ThresholdDate)"
+Write-Host "Deletion Enabled: $DELETE_ENABLED"
+Write-Host "----------------------------"
+
+# ========================================================
+# STEP 2: FIND AND PREVIEW
+# ========================================================
+
+Write-Host "`n--- PREVIEWING FILES TO BE DELETED (LastAccessTime < $INACTIVITY_DAYS days ago) ---"
+Write-Host "Please wait, searching for files..."
+
+# Find all files and directories recursively that match the time criterion.
+$ItemsToDelete = Get-ChildItem -Path $APP_DIR -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastAccessTime -lt $ThresholdDate } |
+    Sort-Object LastAccessTime
+
+# Display the preview list
+if ($ItemsToDelete.Count -eq 0) {
+    Write-Host "No files or directories found that match the inactivity criteria." -ForegroundColor Green
+} else {
+    Write-Host "Found $($ItemsToDelete.Count) items. The following would be removed:" -ForegroundColor Yellow
+    $ItemsToDelete | Select-Object LastAccessTime, FullName | Format-Table -AutoSize
+}
+
+Write-Host "`n--- PREVIEW COMPLETE ---"
+
+# ========================================================
+# STEP 3: EXECUTION MODE (DANGEROUS)
+# ========================================================
+
+if ($DELETE_ENABLED -eq $true) {
+    Write-Host "`n!!! WARNING: DELETION IS ENABLED !!!" -ForegroundColor Red
+    Write-Host "Starting irreversible removal of $($ItemsToDelete.Count) items..." -ForegroundColor Red
+
+    # Loop through the list and delete each item forcefully and recursively
+    $ItemsToDelete | ForEach-Object {
+        # Using -Force and -Recurse is necessary for deleting directories and read-only files.
+        Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop
+        Write-Host "DELETED: $($_.FullName)" -ForegroundColor Red
+    }
+
+    Write-Host "`n--- DELETION COMPLETE ---" -ForegroundColor Red
+
+} else {
+    Write-Host "`nACTION: Deletion is currently DISABLED. Set \$DELETE_ENABLED = \$true to run."
+}

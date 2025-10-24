@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# ===============================================
+# UNUSED APPLICATION CLEANUP SCRIPT (BASH/ZSH)
+# ===============================================
+
+# WARNING: This script uses the file's 'last access time' (-atime)
+# as a proxy for 'last used'. On modern systems, especially with SSDs,
+# access time tracking may be disabled or unreliable for performance reasons.
+# Use the PREVIEW mode (Step 2) to verify the output is correct before
+# attempting to delete anything (Step 3).
+
+# --- Configuration ---
+
+# 1. Define the number of days of inactivity
+INACTIVITY_DAYS=20
+
+# 2. Define the target directory to search.
+#    - For macOS apps installed system-wide, use: /Applications
+#    - For user-specific apps or general files, use: ~/Applications or ~/.local/share/
+#
+# NOTE: If targeting macOS .app bundles, you might need to specify the .app extension.
+# We will use a general directory search for portability.
+
+# You MUST set the target directory here:
+APP_DIR="/path/to/your/applications" # <-- CHANGE THIS PATH!
+
+# ===============================================
+# STEP 1: Input Validation
+# ===============================================
+
+if [ ! -d "$APP_DIR" ]; then
+    echo "Error: The directory '$APP_DIR' does not exist."
+    echo "Please update the 'APP_DIR' variable in the script."
+    exit 1
+fi
+
+echo "--- Script Configuration ---"
+echo "Target Directory: $APP_DIR"
+echo "Inactivity Threshold: $INACTIVITY_DAYS days (Accessed $INACTIVITY_DAYS days ago or MORE)"
+echo "----------------------------"
+
+# ===============================================
+# STEP 2: PREVIEW MODE (SAFE - Lists files only)
+# ===============================================
+
+echo -e "\n--- PREVIEWING APPLICATIONS TO BE DELETED (accessed > $INACTIVITY_DAYS days ago) ---"
+echo "These files/directories would be deleted if the 'rm -rf' line is uncommented."
+echo "Please wait..."
+
+# The 'find' command searches for directories (-type d) or files (-type f)
+# that have not been accessed in $INACTIVITY_DAYS or more days (+20).
+# NOTE: If you are looking only for macOS applications, you can add -name "*.app"
+find "$APP_DIR" -type d -atime +"$INACTIVITY_DAYS" 2>/dev/null \
+    -exec echo "PREVIEW: {}" \;
+
+echo -e "\n--- PREVIEW COMPLETE ---"
+
+# ===============================================
+# STEP 3: EXECUTION MODE (DANGEROUS - Requires manual change)
+# ===============================================
+
+# WARNING: UNCOMMENT THE LINES BELOW ONLY IF YOU ARE 100% SURE.
+# THIS ACTION IS IRREVERSIBLE.
+
+# echo -e "\n--- DELETION STARTING ---"
+# find "$APP_DIR" -type d -atime +"$INACTIVITY_DAYS" 2>/dev/null \
+#     -exec rm -rf {} \;
+# echo -e "\n--- DELETION COMPLETE ---"
